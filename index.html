@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INE 332 — Deal or No Deal | Banker Strategy Simulation</title>
+  <meta name="description" content="A web-based Deal or No Deal game simulation with multiple banker offer strategies, built for the INE 332 Systems Simulation course." />
+  <meta name="keywords" content="Deal or No Deal, simulation, Monte Carlo, game theory, INE 332" />
+  <meta name="author" content="Ekin Ata Angın, Mehmet Mert Gür, Lara Naz Çayır, Abdullah Kerim Kırbıyık, Murathan Oran" />
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="INE 332 — Deal or No Deal Simulation" />
+  <meta property="og:description" content="Interactive Deal or No Deal game with banker strategy simulation." />
+  <meta property="og:type" content="website" />
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>" />
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { width: 100%; height: 100%; }
+    body { background: #040810; overflow-x: hidden; }
+  </style>
+
+  <!-- React 18 CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-type="module">
+    const { useState, useEffect, useCallback } = React;
+
+    // ─── Keyframe Animations ──────────────────────────────────────────────────────
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Oswald:wght@400;600;700&display=swap');
+
+      @keyframes flicker {
+        0%, 100% { opacity: 1; text-shadow: 0 0 10px #f59e0b, 0 0 30px #f59e0b, 0 0 60px #f59e0b; }
+        50% { opacity: 0.92; text-shadow: 0 0 5px #f59e0b, 0 0 15px #f59e0b; }
+      }
+      @keyframes neonPulse {
+        0%, 100% { box-shadow: 0 0 5px currentColor, 0 0 20px currentColor, 0 0 40px currentColor; }
+        50% { box-shadow: 0 0 2px currentColor, 0 0 8px currentColor; }
+      }
+      @keyframes scanline {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100vh); }
+      }
+      @keyframes spinIn {
+        0% { transform: rotateY(90deg) scale(0.5); opacity: 0; }
+        100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+      }
+      @keyframes goldShimmer {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.04); }
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-6px); }
+        40% { transform: translateX(6px); }
+        60% { transform: translateX(-4px); }
+        80% { transform: translateX(4px); }
+      }
+      @keyframes toastIn {
+        0% { transform: translate(-50%, -50%) scale(0.5) rotateX(30deg); opacity: 0; }
+        60% { transform: translate(-50%, -50%) scale(1.1) rotateX(-5deg); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(1) rotateX(0deg); opacity: 1; }
+      }
+      @keyframes borderGlow {
+        0%, 100% { border-color: #f59e0b; box-shadow: 0 0 10px #f59e0b44, inset 0 0 10px #f59e0b11; }
+        50% { border-color: #fbbf24; box-shadow: 0 0 25px #f59e0b88, inset 0 0 20px #f59e0b22; }
+      }
+      @keyframes dealBtn {
+        0%, 100% { box-shadow: 0 0 15px #22c55e88, 0 4px 20px #22c55e44; }
+        50% { box-shadow: 0 0 35px #22c55ecc, 0 4px 40px #22c55e88; }
+      }
+      @keyframes noDealBtn {
+        0%, 100% { box-shadow: 0 0 15px #ef444488, 0 4px 20px #ef444444; }
+        50% { box-shadow: 0 0 35px #ef4444cc, 0 4px 40px #ef444488; }
+      }
+      @keyframes caseHover {
+        0% { box-shadow: 0 2px 8px #0008; }
+        100% { box-shadow: 0 0 20px #60a5fa88, 0 4px 20px #3b82f688; }
+      }
+      @keyframes starFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.6; }
+        50% { transform: translateY(-15px) rotate(180deg); opacity: 1; }
+      }
+      @keyframes ticker {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+      }
+      .case-btn:hover:not(:disabled) {
+        animation: caseHover 0.3s forwards;
+        transform: scale(1.1) translateY(-3px) !important;
+      }
+      .deal-btn { animation: dealBtn 2s ease-in-out infinite; }
+      .no-deal-btn { animation: noDealBtn 2s ease-in-out infinite; }
+      .gold-text {
+        background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b, #ffd700, #b8860b);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: goldShimmer 3s linear infinite;
+      }
+      .neon-border { animation: borderGlow 2s ease-in-out infinite; }
+      .prize-gone { filter: grayscale(1); opacity: 0.3; }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // ─── Game Data ────────────────────────────────────────────────────────────────
+    const PRIZES = [
+      0.01, 1, 5, 10, 25, 50, 75, 100, 200, 300, 400, 500, 750,
+      1000, 5000, 10000, 25000, 50000, 75000, 100000,
+      200000, 300000, 400000, 500000, 750000, 1000000
+    ];
+
+    const OPENING_SCHEDULE = [6, 5, 4, 3, 2, 1, 1, 1, 1];
+
+    function getPrizeTier(prize) {
+      if (prize <= 750) return { color: "#4ade80", glow: "#22c55e", label: "low" };
+      if (prize <= 100000) return { color: "#fbbf24", glow: "#f59e0b", label: "mid" };
+      return { color: "#f87171", glow: "#ef4444", label: "high" };
+    }
+
+    function fmt(v) {
+      if (v === null || v === undefined) return "—";
+      if (v < 1) return `$${v.toFixed(2)}`;
+      if (v >= 1000000) return `$1,000,000`;
+      if (v >= 1000) return `$${v.toLocaleString()}`;
+      return `$${v}`;
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function computeOffer(policy, prizes, roundNum, totalCases) {
+      const n = prizes.length;
+      if (n === 0) return 0;
+      const mean = prizes.reduce((a, b) => a + b, 0) / n;
+      const variance = prizes.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+      const std = Math.sqrt(variance);
+      const progress = 1 - n / totalCases;
+      switch (policy) {
+        case "baseline": return Math.max(0, 0.8 * mean);
+        case "risk_adjusted": return Math.max(0, 0.85 * mean - 0.05 * std);
+        case "dynamic": return Math.max(0, Math.min(0.95, Math.max(0.65, 0.65 + progress * 0.30)) * mean);
+        case "adaptive": return Math.max(0, 0.80 * mean);
+        default: return Math.max(0, 0.8 * mean);
+      }
+    }
+
+    function initGame(policy) {
+      const shuffled = shuffle(PRIZES);
+      const cases = shuffled.map((prize, i) => ({ id: i, prize, opened: false, isPlayer: false }));
+      return {
+        phase: "select",
+        cases,
+        playerCaseId: null,
+        roundIndex: 0,
+        casesOpenedThisRound: 0,
+        casesToOpenThisRound: OPENING_SCHEDULE[0],
+        offer: null,
+        offerHistory: [],
+        decisionHistory: [],
+        payout: null,
+        bankerProfit: null,
+        policy,
+        totalCases: 26,
+        message: "🎰 Choose your case! Fortune favors the bold.",
+      };
+    }
+
+    // ─── Prize Board ──────────────────────────────────────────────────────────────
+    function PrizeBoard({ removedPrizes }) {
+      const sorted = [...PRIZES].sort((a, b) => a - b);
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {sorted.map(p => {
+            const tier = getPrizeTier(p);
+            const gone = removedPrizes.includes(p);
+            return (
+              <div key={p} className={gone ? "prize-gone" : ""} style={{
+                padding: "4px 12px",
+                borderRadius: 6,
+                background: gone ? "transparent" : `${tier.glow}15`,
+                border: `1px solid ${gone ? "#1f2937" : tier.color}`,
+                color: gone ? "#374151" : tier.color,
+                fontFamily: "'Oswald', sans-serif",
+                fontWeight: 600,
+                fontSize: 12,
+                letterSpacing: "1px",
+                textDecoration: gone ? "line-through" : "none",
+                transition: "all 0.5s ease",
+                textShadow: gone ? "none" : `0 0 8px ${tier.glow}88`,
+                position: "relative",
+                overflow: "hidden",
+              }}>
+                {!gone && (
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    background: `linear-gradient(90deg, transparent, ${tier.glow}08, transparent)`,
+                    animation: "goldShimmer 4s linear infinite",
+                    backgroundSize: "200% auto",
+                  }} />
+                )}
+                {fmt(p)}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ─── Case Component ───────────────────────────────────────────────────────────
+    function Case({ c, onClick, disabled, playerCaseId }) {
+      const isPlayer = c.id === playerCaseId;
+      const isOpen = c.opened;
+      const tier = getPrizeTier(c.prize);
+      const canClick = !disabled && !isOpen && !isPlayer;
+
+      return (
+        <button
+          className={canClick ? "case-btn" : ""}
+          onClick={() => canClick && onClick(c.id)}
+          disabled={!canClick}
+          style={{
+            width: 68,
+            height: 62,
+            borderRadius: 10,
+            border: isPlayer
+              ? "2px solid #fbbf24"
+              : isOpen
+                ? "1px solid #1f2937"
+                : "1px solid #3b82f688",
+            background: isOpen
+              ? "#060912"
+              : isPlayer
+                ? "linear-gradient(135deg, #78350f, #92400e, #b45309)"
+                : "linear-gradient(160deg, #0f1f3d 0%, #1a3a6e 50%, #0f1f3d 100%)",
+            cursor: canClick ? "pointer" : "default",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            transition: "transform 0.2s, box-shadow 0.2s",
+            opacity: isOpen ? 0.3 : 1,
+            position: "relative",
+            overflow: "hidden",
+            boxShadow: isPlayer
+              ? "0 0 20px #f59e0b88, inset 0 0 15px #f59e0b22"
+              : isOpen
+                ? "none"
+                : "0 2px 12px #00000088",
+          }}
+        >
+          {/* Shine effect */}
+          {!isOpen && !isPlayer && (
+            <div style={{
+              position: "absolute", top: 0, left: "-100%", width: "60%", height: "100%",
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+              transform: "skewX(-20deg)",
+              pointerEvents: "none",
+            }} />
+          )}
+
+          {isPlayer && (
+            <div style={{
+              fontSize: 8, color: "#fbbf24", fontFamily: "'Oswald', sans-serif",
+              fontWeight: 700, letterSpacing: 2,
+              textShadow: "0 0 8px #f59e0b",
+            }}>⭐ YOU</div>
+          )}
+
+          {isOpen ? (
+            <div style={{
+              fontSize: 10, color: tier.color, fontFamily: "'Oswald', sans-serif",
+              fontWeight: 600, textShadow: `0 0 6px ${tier.glow}`,
+            }}>{fmt(c.prize)}</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 18, filter: "drop-shadow(0 0 4px #60a5fa)" }}>💼</div>
+              <div style={{
+                fontSize: 11, color: "#93c5fd", fontFamily: "'Oswald', sans-serif",
+                fontWeight: 600, letterSpacing: 1,
+              }}>#{c.id + 1}</div>
+            </>
+          )}
+        </button>
+      );
+    }
+
+    // ─── Decorative Stars ─────────────────────────────────────────────────────────
+    function Stars() {
+      const stars = Array.from({ length: 8 }, (_, i) => ({
+        left: `${10 + i * 12}%`,
+        delay: `${i * 0.4}s`,
+        size: i % 3 === 0 ? 16 : 12,
+      }));
+      return (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 40, overflow: "hidden", pointerEvents: "none" }}>
+          {stars.map((s, i) => (
+            <div key={i} style={{
+              position: "absolute", top: 8, left: s.left,
+              fontSize: s.size, opacity: 0.5,
+              animation: `starFloat ${2 + i * 0.3}s ease-in-out infinite`,
+              animationDelay: s.delay,
+            }}>✦</div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─── Main App ─────────────────────────────────────────────────────────────────
+    function DealOrNoDeal() {
+      const [policy, setPolicy] = useState("baseline");
+      const [game, setGame] = useState(() => initGame("baseline"));
+      const [openedPrize, setOpenedPrize] = useState(null);
+      const [phoneRinging, setPhoneRinging] = useState(false);
+
+      const removedPrizes = game.cases.filter(c => c.opened).map(c => c.prize);
+
+      function getRemainingPrizes() {
+        return game.cases.filter(c => !c.opened).map(c => c.prize);
+      }
+      function getMean() {
+        const r = getRemainingPrizes();
+        if (!r.length) return 0;
+        return r.reduce((a, b) => a + b, 0) / r.length;
+      }
+
+      function handleCaseClick(id) {
+        setGame(prev => {
+          const newCases = prev.cases.map(c => c);
+
+          if (prev.phase === "select") {
+            const updated = newCases.map(c => c.id === id ? { ...c, isPlayer: true } : c);
+            return {
+              ...prev, cases: updated, playerCaseId: id, phase: "play",
+              message: `✦ Case #${id + 1} is yours! Now open ${OPENING_SCHEDULE[0]} cases.`,
+            };
+          }
+
+          if (prev.phase === "play") {
+            const updated = newCases.map(c => c.id === id ? { ...c, opened: true } : c);
+            const openedCase = prev.cases.find(c => c.id === id);
+            setOpenedPrize(openedCase.prize);
+            setTimeout(() => setOpenedPrize(null), 2200);
+
+            const newCount = prev.casesOpenedThisRound + 1;
+            const target = prev.casesToOpenThisRound;
+
+            if (newCount >= target) {
+              const remaining = updated.filter(c => !c.opened).map(c => c.prize);
+              const offer = computeOffer(prev.policy, remaining, prev.roundIndex + 1, prev.totalCases);
+              setPhoneRinging(true);
+              setTimeout(() => setPhoneRinging(false), 1500);
+              return {
+                ...prev, cases: updated, casesOpenedThisRound: newCount,
+                offer: Math.round(offer), phase: "offer",
+                message: `📞 Round ${prev.roundIndex + 1} complete! The Banker is calling...`,
+              };
+            } else {
+              const left = target - newCount;
+              return {
+                ...prev, cases: updated, casesOpenedThisRound: newCount,
+                message: `Open ${left} more case${left > 1 ? "s" : ""}.`,
+              };
+            }
+          }
+          return prev;
+        });
+      }
+
+      function handleDeal() {
+        setGame(prev => {
+          const playerCase = prev.cases.find(c => c.id === prev.playerCaseId);
+          const profit = playerCase.prize - prev.offer;
+          return {
+            ...prev, phase: "end", payout: prev.offer, bankerProfit: profit,
+            offerHistory: [...prev.offerHistory, prev.offer],
+            decisionHistory: [...prev.decisionHistory, "DEAL"],
+            message: `💚 DEAL! You locked in ${fmt(prev.offer)}. Your case had ${fmt(playerCase.prize)}.`,
+          };
+        });
+      }
+
+      function handleNoDeal() {
+        setGame(prev => {
+          const nextRound = prev.roundIndex + 1;
+          const nextSchedule = OPENING_SCHEDULE[nextRound] ?? 1;
+          const remaining = prev.cases.filter(c => !c.opened && c.id !== prev.playerCaseId);
+          if (remaining.length === 0) {
+            const playerCase = prev.cases.find(c => c.id === prev.playerCaseId);
+            return {
+              ...prev, phase: "end", payout: playerCase.prize, bankerProfit: 0,
+              offerHistory: [...prev.offerHistory, prev.offer],
+              decisionHistory: [...prev.decisionHistory, "NO DEAL"],
+              message: `🔴 No Deal! Your case had ${fmt(playerCase.prize)}.`,
+            };
+          }
+          return {
+            ...prev, roundIndex: nextRound, casesOpenedThisRound: 0,
+            casesToOpenThisRound: nextSchedule,
+            offerHistory: [...prev.offerHistory, prev.offer],
+            decisionHistory: [...prev.decisionHistory, "NO DEAL"],
+            offer: null, phase: "play",
+            message: `🔴 No deal! Open ${nextSchedule} case${nextSchedule > 1 ? "s" : ""} this round.`,
+          };
+        });
+      }
+
+      function newGame() {
+        setGame(initGame(policy));
+      }
+
+      const mean = getMean();
+      const offerRatio = mean > 0 ? (game.offer ?? 0) / mean : 0;
+
+      // color palette
+      const bg = "#040810";
+      const cardBg = "rgba(8, 15, 35, 0.95)";
+      const gold = "#c9a227";
+      const neonBlue = "#3b82f6";
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: `radial-gradient(ellipse at 20% 50%, #0a1628 0%, #040810 50%, #0a0612 100%)`,
+          fontFamily: "'Oswald', sans-serif",
+          color: "white",
+          padding: "14px",
+          position: "relative",
+          overflow: "hidden",
+        }}>
+
+          {/* Background grid */}
+          <div style={{
+            position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
+            backgroundImage: `
+              linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px)
+            `,
+            backgroundSize: "40px 40px",
+          }} />
+
+          {/* Scanline overlay */}
+          <div style={{
+            position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1,
+            background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)",
+          }} />
+
+          {/* Corner decorations */}
+          {["top:0,left:0", "top:0,right:0", "bottom:0,left:0", "bottom:0,right:0"].map((pos, i) => {
+            const [v, h] = pos.split(",");
+            const [vk, vv] = v.split(":");
+            const [hk, hv] = h.split(":");
+            return (
+              <div key={i} style={{
+                position: "fixed", [vk]: vv, [hk]: hv, width: 80, height: 80,
+                pointerEvents: "none", zIndex: 2,
+                background: `radial-gradient(circle at ${hk === "left" ? "0% 0%" : "100% 0%"}, #c9a22722, transparent 70%)`,
+              }} />
+            );
+          })}
+
+          <div style={{ position: "relative", zIndex: 3 }}>
+
+            {/* ── HEADER ── */}
+            <div style={{
+              textAlign: "center",
+              marginBottom: 14,
+              padding: "18px 0 12px",
+              position: "relative",
+              borderBottom: "1px solid #c9a22733",
+            }}>
+              <Stars />
+              <div style={{
+                fontSize: 9, letterSpacing: 6, color: "#c9a22788",
+                fontFamily: "'Oswald', sans-serif", marginBottom: 4,
+              }}>✦ ✦ ✦ EKIN ATA ANGIN, MEHMET MERT GUR, LARA NAZ ÇAYIR, ABDULLAH KERIM KIRBIYIK MURATHAN ORAN PRESENTS OUR TERM PROJECT ✦ ✦ ✦</div>
+              <h1 style={{
+                fontSize: 36, fontWeight: 900, margin: "0 0 4px",
+                fontFamily: "'Playfair Display', serif",
+                background: "linear-gradient(180deg, #ffd700 0%, #c9a227 40%, #ffd700 60%, #b8860b 100%)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                textShadow: "none",
+                filter: "drop-shadow(0 0 20px #c9a22788)",
+                letterSpacing: 2,
+              }}>
+                INE 332: Systems Simulation of Deal or No Deal Game
+              </h1>
+              <div style={{
+                fontSize: 10, letterSpacing: 5, color: "#6b7280",
+                fontFamily: "'Oswald', sans-serif",
+              }}>BANKER STRATEGY SIMULATION</div>
+
+              {/* Scrolling ticker */}
+              <div style={{
+                marginTop: 10, overflow: "hidden", height: 22,
+                background: "#c9a22711", borderTop: "1px solid #c9a22733",
+                borderBottom: "1px solid #c9a22733",
+              }}>
+                <div style={{
+                  animation: "ticker 18s linear infinite",
+                  whiteSpace: "nowrap", fontSize: 11,
+                  color: "#c9a227", letterSpacing: 2, lineHeight: "22px",
+                }}>
+                  ✦ PLACE YOUR BET — FORTUNE AWAITS ✦ BANKER NEVER SLEEPS ✦ ONE MILLION DOLLARS ON THE LINE ✦ WILL YOU DEAL? ✦ LUCKY CASE CHALLENGE ✦ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                </div>
+              </div>
+            </div>
+
+            {/* ── POLICY BAR ── */}
+            <div style={{
+              background: cardBg,
+              border: "1px solid #c9a22733",
+              borderRadius: 12,
+              padding: "10px 16px",
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+            }}>
+              <span style={{ color: "#c9a227", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>🏦 BANKER POLICY:</span>
+              {[
+                { id: "baseline", label: "Baseline 0.8×" },
+                { id: "risk_adjusted", label: "Risk-Adjusted" },
+                { id: "dynamic", label: "Dynamic" },
+                { id: "adaptive", label: "Adaptive" },
+              ].map(p => (
+                <button key={p.id} onClick={() => setPolicy(p.id)} style={{
+                  padding: "5px 14px",
+                  borderRadius: 6,
+                  border: `1px solid ${policy === p.id ? "#c9a227" : "#1f2937"}`,
+                  background: policy === p.id
+                    ? "linear-gradient(135deg, #78350f, #92400e)"
+                    : "rgba(255,255,255,0.03)",
+                  color: policy === p.id ? "#fbbf24" : "#6b7280",
+                  fontSize: 11, cursor: "pointer",
+                  fontFamily: "'Oswald', sans-serif",
+                  fontWeight: policy === p.id ? 700 : 400,
+                  letterSpacing: 1,
+                  transition: "all 0.2s",
+                  boxShadow: policy === p.id ? "0 0 12px #c9a22744" : "none",
+                }}>
+                  {p.label}
+                </button>
+              ))}
+              <button onClick={newGame} style={{
+                marginLeft: "auto",
+                padding: "6px 18px",
+                borderRadius: 6,
+                border: "1px solid #22c55e88",
+                background: "linear-gradient(135deg, #052e16, #14532d)",
+                color: "#4ade80",
+                fontSize: 11, cursor: "pointer",
+                fontFamily: "'Oswald', sans-serif",
+                fontWeight: 700, letterSpacing: 2,
+                boxShadow: "0 0 12px #22c55e33",
+                transition: "all 0.2s",
+              }}>
+                ↺ NEW GAME
+              </button>
+            </div>
+
+            {/* ── MAIN LAYOUT ── */}
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+
+              {/* LEFT — Prize Board */}
+              <div style={{
+                background: cardBg,
+                border: "1px solid #c9a22733",
+                borderRadius: 12,
+                padding: "12px 10px",
+                minWidth: 105,
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 4px 30px rgba(0,0,0,0.5), inset 0 0 30px rgba(201,162,39,0.03)",
+              }}>
+                <div style={{
+                  color: "#c9a227", fontSize: 9, fontWeight: 700,
+                  marginBottom: 10, letterSpacing: 3, textAlign: "center",
+                  textShadow: "0 0 8px #c9a22788",
+                }}>
+                  ◆ PRIZES ◆
+                </div>
+                <PrizeBoard removedPrizes={removedPrizes} />
+              </div>
+
+              {/* CENTER */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+
+                {/* Status Bar */}
+                <div style={{
+                  background: cardBg,
+                  border: "1px solid #c9a22733",
+                  borderRadius: 12,
+                  padding: "12px 16px",
+                  backdropFilter: "blur(10px)",
+                  boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+                }}>
+                  <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+                    {[
+                      { label: "ROUND", value: game.phase === "select" ? "—" : game.roundIndex + 1, color: "#c9a227" },
+                      { label: "CASES LEFT", value: game.cases.filter(c => !c.opened).length, color: "white" },
+                      { label: "EXPECTED VALUE", value: fmt(Math.round(mean)), color: "#4ade80" },
+                      ...(game.playerCaseId !== null ? [{ label: "YOUR CASE", value: `#${game.playerCaseId + 1}`, color: "#fbbf24" }] : []),
+                      ...(game.phase === "play" ? [{ label: "OPEN THIS ROUND", value: game.casesToOpenThisRound - game.casesOpenedThisRound, color: "#a78bfa" }] : []),
+                    ].map(item => (
+                      <div key={item.label}>
+                        <div style={{ color: "#4b5563", fontSize: 9, letterSpacing: 2, marginBottom: 2 }}>{item.label}</div>
+                        <div style={{
+                          color: item.color, fontWeight: 700, fontSize: 22,
+                          fontFamily: "'Playfair Display', serif",
+                          textShadow: `0 0 12px ${item.color}66`,
+                        }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Message */}
+                  <div style={{
+                    marginTop: 10,
+                    padding: "8px 14px",
+                    background: "rgba(0,0,0,0.4)",
+                    borderRadius: 8,
+                    border: "1px solid #c9a22722",
+                    color: "#d1d5db",
+                    fontSize: 13,
+                    fontFamily: "'Oswald', sans-serif",
+                    letterSpacing: 1,
+                    fontStyle: "normal",
+                  }}>
+                    {game.message}
+                  </div>
+                </div>
+
+                {/* Cases Grid */}
+                <div style={{
+                  background: cardBg,
+                  border: "1px solid #c9a22733",
+                  borderRadius: 12,
+                  padding: 16,
+                  backdropFilter: "blur(10px)",
+                  boxShadow: "0 4px 30px rgba(0,0,0,0.5), inset 0 0 60px rgba(59,130,246,0.03)",
+                  position: "relative",
+                }}>
+                  {/* Inner corner accents */}
+                  {["top:8px,left:8px", "top:8px,right:8px", "bottom:8px,left:8px", "bottom:8px,right:8px"].map((pos, i) => {
+                    const [v, h] = pos.split(",");
+                    const [vk, vv] = v.split(":");
+                    const [hk, hv] = h.split(":");
+                    const borders = {
+                      borderTop: (vk === "top") ? "1px solid #c9a22755" : "none",
+                      borderBottom: (vk === "bottom") ? "1px solid #c9a22755" : "none",
+                      borderLeft: (hk === "left") ? "1px solid #c9a22755" : "none",
+                      borderRight: (hk === "right") ? "1px solid #c9a22755" : "none",
+                    };
+                    return (
+                      <div key={i} style={{
+                        position: "absolute", [vk]: vv, [hk]: hv,
+                        width: 16, height: 16, ...borders, pointerEvents: "none",
+                      }} />
+                    );
+                  })}
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                    {game.cases.map(c => (
+                      <Case
+                        key={c.id} c={c} onClick={handleCaseClick}
+                        disabled={game.phase === "offer" || game.phase === "end"}
+                        phase={game.phase}
+                        playerCaseId={game.playerCaseId}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── OFFER PANEL ── */}
+                {game.phase === "offer" && (
+                  <div style={{
+                    background: "linear-gradient(135deg, #050818, #0a0a2e, #050818)",
+                    border: "2px solid #c9a227",
+                    borderRadius: 16,
+                    padding: "24px 28px",
+                    textAlign: "center",
+                    boxShadow: "0 0 60px #c9a22733, inset 0 0 40px rgba(201,162,39,0.05)",
+                    animation: "borderGlow 2s ease-in-out infinite",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}>
+                    {/* Radial glow bg */}
+                    <div style={{
+                      position: "absolute", top: "50%", left: "50%",
+                      transform: "translate(-50%,-50%)",
+                      width: 300, height: 300,
+                      background: "radial-gradient(circle, #c9a22715 0%, transparent 70%)",
+                      pointerEvents: "none",
+                    }} />
+
+                    <div style={{
+                      fontSize: 11, letterSpacing: 4, color: "#9ca3af",
+                      fontFamily: "'Oswald', sans-serif", marginBottom: 6,
+                      animation: phoneRinging ? "shake 0.5s ease-in-out" : "none",
+                    }}>
+                      📞 THE BANKER IS CALLING...
+                    </div>
+
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 12, letterSpacing: 1 }}>
+                      Policy: <span style={{ color: "#c9a227" }}>{policy}</span>
+                      &nbsp;|&nbsp; EV: <span style={{ color: "#4ade80" }}>{fmt(Math.round(mean))}</span>
+                      &nbsp;|&nbsp; Offer: <span style={{ color: "#fb923c" }}>{(offerRatio * 100).toFixed(1)}% of EV</span>
+                    </div>
+
+                    <div style={{
+                      fontSize: 56, fontWeight: 900,
+                      fontFamily: "'Playfair Display', serif",
+                      background: "linear-gradient(180deg, #ffd700 0%, #c9a227 40%, #ffd700 80%)",
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                      marginBottom: 20,
+                      filter: "drop-shadow(0 0 20px #c9a22799)",
+                      animation: "flicker 3s ease-in-out infinite",
+                    }}>
+                      {fmt(game.offer)}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                      <button className="deal-btn" onClick={handleDeal} style={{
+                        padding: "14px 44px",
+                        borderRadius: 10,
+                        border: "1px solid #22c55e",
+                        background: "linear-gradient(135deg, #052e16, #14532d, #052e16)",
+                        color: "#4ade80",
+                        fontSize: 18, fontWeight: 700, cursor: "pointer",
+                        fontFamily: "'Oswald', sans-serif", letterSpacing: 3,
+                        transition: "transform 0.1s",
+                      }}
+                        onMouseDown={e => e.currentTarget.style.transform = "scale(0.97)"}
+                        onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
+                      >
+                        ✅ DEAL!
+                      </button>
+                      <button className="no-deal-btn" onClick={handleNoDeal} style={{
+                        padding: "14px 44px",
+                        borderRadius: 10,
+                        border: "1px solid #ef4444",
+                        background: "linear-gradient(135deg, #450a0a, #7f1d1d, #450a0a)",
+                        color: "#f87171",
+                        fontSize: 18, fontWeight: 700, cursor: "pointer",
+                        fontFamily: "'Oswald', sans-serif", letterSpacing: 2,
+                        transition: "transform 0.1s",
+                      }}
+                        onMouseDown={e => e.currentTarget.style.transform = "scale(0.97)"}
+                        onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
+                      >
+                        ❌ NO DEAL!
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── END SCREEN ── */}
+                {game.phase === "end" && (
+                  <div style={{
+                    background: "linear-gradient(135deg, #0a0810, #0f0a1a, #0a1208)",
+                    border: "2px solid #c9a227",
+                    borderRadius: 16,
+                    padding: "28px 24px",
+                    textAlign: "center",
+                    boxShadow: "0 0 80px #c9a22744",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      position: "absolute", inset: 0, pointerEvents: "none",
+                      backgroundImage: `radial-gradient(circle at 30% 30%, #c9a22711, transparent 50%),
+                        radial-gradient(circle at 70% 70%, #22c55e08, transparent 50%)`,
+                    }} />
+
+                    <div style={{
+                      fontSize: 32, marginBottom: 8,
+                      animation: "pulse 2s ease-in-out infinite",
+                    }}>
+                      {game.bankerProfit > 0 ? "💰" : "🎉"}
+                    </div>
+
+                    <div style={{
+                      fontSize: 26, fontWeight: 900,
+                      fontFamily: "'Playfair Display', serif",
+                      marginBottom: 20,
+                      background: "linear-gradient(180deg, #ffd700, #c9a227)",
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                      letterSpacing: 3,
+                    }}>GAME OVER</div>
+
+                    <div style={{ display: "flex", gap: 28, justifyContent: "center", flexWrap: "wrap", marginBottom: 18 }}>
+                      {[
+                        {
+                          label: "YOUR CASE CONTAINED",
+                          value: fmt(game.cases.find(c => c.id === game.playerCaseId)?.prize),
+                          color: "#c9a227",
+                        },
+                        { label: "YOU RECEIVED", value: fmt(game.payout), color: "#4ade80" },
+                        {
+                          label: "BANKER PROFIT",
+                          value: `${game.bankerProfit >= 0 ? "+" : ""}${fmt(game.bankerProfit)}`,
+                          color: game.bankerProfit >= 0 ? "#4ade80" : "#f87171",
+                        },
+                      ].map(item => (
+                        <div key={item.label} style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid #c9a22733",
+                          borderRadius: 10,
+                          padding: "12px 20px",
+                        }}>
+                          <div style={{ color: "#4b5563", fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>{item.label}</div>
+                          <div style={{
+                            color: item.color, fontSize: 22, fontWeight: 700,
+                            fontFamily: "'Playfair Display', serif",
+                            textShadow: `0 0 15px ${item.color}88`,
+                          }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {game.offerHistory.length > 0 && (
+                      <div style={{
+                        fontSize: 11, color: "#4b5563",
+                        fontFamily: "'Oswald', sans-serif", letterSpacing: 1,
+                        marginBottom: 16,
+                      }}>
+                        OFFERS:&nbsp;
+                        {game.offerHistory.map((o, i) => (
+                          <span key={i} style={{
+                            marginLeft: 8,
+                            color: game.decisionHistory[i] === "DEAL" ? "#4ade80" : "#6b7280",
+                            fontWeight: game.decisionHistory[i] === "DEAL" ? 700 : 400,
+                          }}>
+                            {fmt(o)} <span style={{ fontSize: 9 }}>({game.decisionHistory[i]})</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <button onClick={newGame} style={{
+                      padding: "12px 36px",
+                      borderRadius: 10,
+                      border: "1px solid #c9a227",
+                      background: "linear-gradient(135deg, #78350f, #92400e, #78350f)",
+                      color: "#fbbf24",
+                      fontSize: 14, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "'Oswald', sans-serif",
+                      letterSpacing: 3,
+                      boxShadow: "0 0 20px #c9a22744",
+                    }}>
+                      ↺ PLAY AGAIN
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT — History */}
+              <div style={{
+                background: cardBg,
+                border: "1px solid #c9a22733",
+                borderRadius: 12,
+                padding: "12px 10px",
+                minWidth: 130,
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+              }}>
+                <div style={{
+                  color: "#c9a227", fontSize: 9, fontWeight: 700,
+                  marginBottom: 10, letterSpacing: 3, textAlign: "center",
+                  textShadow: "0 0 8px #c9a22788",
+                }}>◆ OFFERS ◆</div>
+
+                {game.offerHistory.length === 0 ? (
+                  <div style={{ color: "#1f2937", fontSize: 11, fontStyle: "italic", textAlign: "center", marginTop: 8 }}>
+                    No offers yet
+                  </div>
+                ) : (
+                  game.offerHistory.map((o, i) => (
+                    <div key={i} style={{
+                      marginBottom: 8, padding: "6px 8px",
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid #1f2937",
+                      borderRadius: 8,
+                    }}>
+                      <div style={{ color: "#4b5563", fontSize: 9, letterSpacing: 1 }}>ROUND {i + 1}</div>
+                      <div style={{
+                        color: "#c9a227", fontWeight: 700, fontSize: 13,
+                        fontFamily: "'Playfair Display', serif",
+                      }}>{fmt(o)}</div>
+                      <div style={{
+                        fontSize: 10, letterSpacing: 1,
+                        color: game.decisionHistory[i] === "DEAL" ? "#4ade80" : "#ef4444",
+                        fontWeight: 700,
+                      }}>
+                        {game.decisionHistory[i]}
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Sim Results */}
+                <div style={{
+                  marginTop: 14, paddingTop: 12,
+                  borderTop: "1px solid #1f2937",
+                }}>
+                  <div style={{
+                    color: "#c9a227", fontSize: 9, fontWeight: 700,
+                    marginBottom: 8, letterSpacing: 3, textAlign: "center",
+                  }}>◆ SIM DATA ◆</div>
+                  {[
+                    { policy: "Baseline", profit: 19715 },
+                    { policy: "Risk-Adj", profit: 23616 },
+                    { policy: "Dynamic", profit: 24067 },
+                    { policy: "Adaptive", profit: 25057 },
+                  ].map(r => (
+                    <div key={r.policy} style={{ marginBottom: 6 }}>
+                      <div style={{ color: "#4b5563", fontSize: 9, letterSpacing: 1 }}>{r.policy}</div>
+                      <div style={{
+                        color: "#4ade80", fontWeight: 700, fontSize: 12,
+                        textShadow: "0 0 8px #22c55e88",
+                      }}>{fmt(r.profit)}</div>
+                    </div>
+                  ))}
+                  <div style={{
+                    color: "#374151", fontSize: 9, marginTop: 6,
+                    fontStyle: "italic", letterSpacing: 0.5,
+                  }}>10,000-game Monte Carlo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── PRIZE TOAST ── */}
+          {openedPrize !== null && (
+            <div style={{
+              position: "fixed", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(4, 8, 16, 0.97)",
+              border: `2px solid ${getPrizeTier(openedPrize).color}`,
+              borderRadius: 20,
+              padding: "28px 50px",
+              textAlign: "center",
+              zIndex: 1000,
+              boxShadow: `0 0 80px ${getPrizeTier(openedPrize).glow}55, inset 0 0 40px ${getPrizeTier(openedPrize).glow}11`,
+              animation: "toastIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+              pointerEvents: "none",
+              backdropFilter: "blur(20px)",
+            }}>
+              <div style={{
+                color: "#4b5563", fontSize: 10, letterSpacing: 4,
+                fontFamily: "'Oswald', sans-serif", marginBottom: 8,
+              }}>◆ CASE REVEALED ◆</div>
+              <div style={{
+                fontSize: 56, fontWeight: 900,
+                fontFamily: "'Playfair Display', serif",
+                color: getPrizeTier(openedPrize).color,
+                textShadow: `0 0 30px ${getPrizeTier(openedPrize).glow}`,
+                filter: `drop-shadow(0 0 20px ${getPrizeTier(openedPrize).glow}88)`,
+              }}>
+                {fmt(openedPrize)}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─── Render ────────────────────────────────────────────────────────────────────
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<DealOrNoDeal />);
+  </script>
+</body>
+</html>
