@@ -4,7 +4,7 @@ A web-based simulation of the **Deal or No Deal** game show, built as a term pro
 
 ## 🎮 Play Now
 
-👉 **[Play the Game](https://ekinataangin.github.io/ine332project-dealordealwebgame.io/)**
+👉 **[Play the Game](https://ekinataangin.github.io/ine332project-dealordealwebgame.github.io/)**
 
 ## 📋 Overview
 
